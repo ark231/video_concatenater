@@ -790,7 +790,11 @@ void MainWindow::start_saving_() {
     process_->setAttribute(Qt::WA_DeleteOnClose, true);
     process_->show();
 
-    tmpdir_ = new QTemporaryDir();
+    if (settings_->contains("temporary_directory_template")) {
+        tmpdir_ = new QTemporaryDir(settings_->value("temporary_directory_template").toString());
+    } else {
+        tmpdir_ = new QTemporaryDir();
+    }
     file_infos_.clear();
     current_index_ = 0;
     show_size_();
