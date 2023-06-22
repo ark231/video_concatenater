@@ -659,6 +659,13 @@ int decode_ffmpeg(QStringView, QStringView new_stderr) {
                seconds(match.captured("seconds").toInt()) + centiseconds(match.captured("centiseconds").toInt()))
         .count();
 }
+using VT = ProcessWidget::ProgressParams::ValueType;
+auto format_time(VT value) {
+    return QTime::fromMSecsSinceStartOfDay(value).toString(QObject::tr("hh'h'mm'm'ss's'zzz'ms'"));
+};
+auto format_time_progress(VT, VT current, VT total) {
+    return QStringLiteral("%1/%2").arg(format_time(current)).arg(format_time(total));
+}
 }  // namespace impl_
 void MainWindow::concatenate_videos_() {
     if (not tmpdir_->isValid()) {
@@ -713,13 +720,8 @@ void MainWindow::concatenate_videos_() {
     arguments += output_video_info_.encoding_args;
     arguments << tmpfile_paths_.concatenated;
     using VT = ProcessWidget::ProgressParams::ValueType;
-    auto format = [](VT value) {
-        return QTime::fromMSecsSinceStartOfDay(value).toString(tr("hh'h'mm'm'ss's'zzz'ms'"));
-    };
     process_->start("ffmpeg", arguments, false,
-                    {0, total_length_.count(), impl_::decode_ffmpeg, [format](VT, VT current, VT total) {
-                         return QStringLiteral("%1/%2").arg(format(current)).arg(format(total));
-                     }});
+                    {0, total_length_.count(), impl_::decode_ffmpeg, impl_::format_time_progress});
     tmpfile_paths_.metadata = tmpdir_->filePath("metadata.ini");
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] {
                 this->retrieve_metadata_(this->tmpfile_paths_.concatenated, this->tmpfile_paths_.metadata,
@@ -776,7 +778,8 @@ void MainWindow::add_chapters_() {
     //     "py", {"-c", "import time;[print(i,flush=True) or time.sleep(1) for i in range(120)]",
     //     tmpfile_paths_.metadata}, true);
 
-    process_->start("ffmpeg", arguments, true, {0, total_length_.count(), impl_::decode_ffmpeg});
+    process_->start("ffmpeg", arguments, true,
+                    {0, total_length_.count(), impl_::decode_ffmpeg, impl_::format_time_progress});
     connect(process_, &ProcessWidget::finished, this, impl_::OnTrue([=] { this->cleanup_after_saving_(); }),
             impl_::ONESHOT_AUTO_CONNECTION);
 }
