@@ -12,13 +12,18 @@ ProcessWidget::ProcessWidget(QWidget *parent, Qt::WindowFlags flags)
     : QWidget(parent, flags), ui_(new Ui::ProcessWidget) {
     ui_->setupUi(this);
     ui_->label_status->setText(tr("Executing nothing."));
+    enable_closing_();
+    connect(ui_->pushButton_close, &QPushButton::clicked, this, &ProcessWidget::do_close_);
+    connect(ui_->pushButton_kill, &QPushButton::clicked, this, &ProcessWidget::kill_process_);
     thread_.start();
 }
 
 ProcessWidget::~ProcessWidget() {
     delete ui_;
     thread_.quit();
-    thread_.wait();
+    if (thread_.isRunning()) {
+        thread_.wait();
+    }
 }
 
 void ProcessWidget::start(const QString &command, const QStringList &arguments, bool is_final,
@@ -36,8 +41,6 @@ void ProcessWidget::start(const QString &command, const QStringList &arguments, 
     connect(process_, &QProcess::errorOccurred, this, &ProcessWidget::show_error_);
     connect(process_, &QProcess::finished, this, &ProcessWidget::update_label_on_finish_);
     connect(this, &ProcessWidget::sigkill, process_, &QProcess::close, Qt::BlockingQueuedConnection);
-    connect(ui_->pushButton_close, &QPushButton::clicked, this, &ProcessWidget::do_close_);
-    connect(ui_->pushButton_kill, &QPushButton::clicked, this, &ProcessWidget::kill_process_);
     if (is_final) {
         connect(process_, &QProcess::finished, this, &ProcessWidget::enable_closing_);
     }
@@ -192,7 +195,9 @@ void ProcessWidget::show_error_(QProcess::ProcessError err) {
 }
 void ProcessWidget::do_close_() {
     thread_.quit();
-    thread_.wait();
+    if (thread_.isRunning()) {
+        thread_.wait();
+    }
     close();
 }
 QTextEdit *ProcessWidget::stdout_textedit_of_(int idx) {
